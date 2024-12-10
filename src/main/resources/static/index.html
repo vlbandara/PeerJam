@@ -1,25 +1,49 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebSocket Test</title>
 </head>
 <body>
     <script>
+        // Initialize WebSocket connection
         const socket = new WebSocket('ws://localhost:8080/signaling-server');
 
+        // Event listener for when the connection opens
         socket.onopen = () => {
             console.log('Connected to signaling server');
             socket.send(JSON.stringify({ type: 'join-room', room: 'room-id' }));
         };
 
+        // Event listener for receiving messages from the server
         socket.onmessage = (event) => {
             console.log('Message from server:', event.data);
         };
 
+        // Event listener for when the connection closes
         socket.onclose = () => {
             console.log('Disconnected from signaling server');
         };
+
+        // Function to send a message to the server
+        function sendMessage(type, data) {
+            const message = { type, ...data };
+            socket.send(JSON.stringify(message));
+        }
+
+        // Example usage of sending messages
+        setTimeout(() => {
+            sendMessage('offer', { to: 'other-user-id', offer: 'offer-sdp' });
+        }, 5000);
+
+        setTimeout(() => {
+            sendMessage('answer', { to: 'other-user-id', answer: 'answer-sdp' });
+        }, 10000);
+
+        setTimeout(() => {
+            sendMessage('ice-candidate', { to: 'other-user-id', candidate: 'ice-candidate' });
+        }, 15000);
     </script>
 </body>
 </html>
