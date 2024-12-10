@@ -7,6 +7,8 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -17,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class SignalingServerHandler extends TextWebSocketHandler {
+    private static final Logger logger = LoggerFactory.getLogger(SignalingServerHandler.class);
 
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -25,6 +28,8 @@ public class SignalingServerHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String userId = session.getId();
         sessions.put(userId, session);
+        logger.info("New connection established. User ID: {}", userId);
+        logger.info("Total connected sessions: {}", sessions.size());
 
         // Send current peer list to the newly connected user
         sendPeerList(session);
@@ -36,22 +41,31 @@ public class SignalingServerHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        Map<String, Object> data = objectMapper.readValue(payload, Map.class);
-        String type = (String) data.get("type");
+        logger.info("Received message from {}: {}", session.getId(), payload);
 
-        switch (type) {
-            case "offer":
-                handleOffer(session, data);
-                break;
-            case "answer":
-                handleAnswer(session, data);
-                break;
-            case "ice-candidate":
-                handleIceCandidate(session, data);
-                break;
-            case "peer-list":
-                sendPeerList(session);
-                break;
+        try {
+            Map<String, Object> data = objectMapper.readValue(payload, Map.class);
+            String type = (String) data.get("type");
+            logger.info("Message type: {}", type);
+
+            switch (type) {
+                case "offer":
+                    handleOffer(session, data);
+                    break;
+                case "answer":
+                    handleAnswer(session, data);
+                    break;
+                case "ice-candidate":
+                    handleIceCandidate(session, data);
+                    break;
+                case "peer-list":
+                    sendPeerList(session);
+                    break;
+                default:
+                    logger.warn("Unknown message type: {}", type);
+            }
+        } catch (Exception e) {
+            logger.error("Error processing message", e);
         }
     }
 
@@ -59,6 +73,8 @@ public class SignalingServerHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         String userId = session.getId();
         sessions.remove(userId);
+        logger.info("Connection closed. User ID: {}", userId);
+        logger.info("Remaining connected sessions: {}", sessions.size());
 
         // Broadcast updated peer list
         broadcastPeerList();
@@ -67,6 +83,7 @@ public class SignalingServerHandler extends TextWebSocketHandler {
     private void handleOffer(WebSocketSession session, Map<String, Object> data) throws IOException {
         String to = (String) data.get("to");
         String from = session.getId();
+        logger.info("Handling offer from {} to {}", from, to);
 
         Map<String, Object> offerMessage = new HashMap<>();
         offerMessage.put("type", "offer");
@@ -79,6 +96,7 @@ public class SignalingServerHandler extends TextWebSocketHandler {
     private void handleAnswer(WebSocketSession session, Map<String, Object> data) throws IOException {
         String to = (String) data.get("to");
         String from = session.getId();
+        logger.info("Handling answer from {} to {}", from, to);
 
         Map<String, Object> answerMessage = new HashMap<>();
         answerMessage.put("type", "answer");
@@ -91,6 +109,7 @@ public class SignalingServerHandler extends TextWebSocketHandler {
     private void handleIceCandidate(WebSocketSession session, Map<String, Object> data) throws IOException {
         String to = (String) data.get("to");
         String from = session.getId();
+        logger.info("Handling ICE candidate from {} to {}", from, to);
 
         Map<String, Object> candidateMessage = new HashMap<>();
         candidateMessage.put("type", "ice-candidate");
@@ -103,7 +122,10 @@ public class SignalingServerHandler extends TextWebSocketHandler {
     private void sendMessage(String userId, String message) throws IOException {
         WebSocketSession session = sessions.get(userId);
         if (session != null && session.isOpen()) {
+            logger.info("Sending message to {}: {}", userId, message);
             session.sendMessage(new TextMessage(message));
+        } else {
+            logger.warn("Failed to send message. Session for user {} is not open.", userId);
         }
     }
 
@@ -115,7 +137,9 @@ public class SignalingServerHandler extends TextWebSocketHandler {
         peerListMessage.put("type", "peer-list");
         peerListMessage.put("payload", peerIds);
 
-        session.sendMessage(new TextMessage(objectMapper.writeValueAsString(peerListMessage)));
+        String message = objectMapper.writeValueAsString(peerListMessage);
+        logger.info("Sending peer list to {}: {}", session.getId(), message);
+        session.sendMessage(new TextMessage(message));
     }
 
     private void broadcastPeerList() throws IOException {
@@ -129,7 +153,9 @@ public class SignalingServerHandler extends TextWebSocketHandler {
             peerListMessage.put("type", "peer-list");
             peerListMessage.put("payload", otherPeerIds);
 
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(peerListMessage)));
+            String message = objectMapper.writeValueAsString(peerListMessage);
+            logger.info("Broadcasting peer list to {}: {}", session.getId(), message);
+            session.sendMessage(new TextMessage(message));
         }
     }
 }
