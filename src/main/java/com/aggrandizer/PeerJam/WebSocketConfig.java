@@ -1,4 +1,4 @@
-package com.gucardev.springbootwebrtcpeer2peer;
+package com.aggrandizer.PeerJam;
 
 import com.corundumstudio.socketio.SocketIOServer;
 import org.springframework.beans.factory.annotation.Value;
