@@ -4,9 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class PeerJamApplication {
+public class PeerJam {
 
-	public static void main(String[] args) {
-		SpringApplication.run(PeerJamApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(PeerJam.class, args);
+    }
+
 }
